@@ -1,0 +1,18 @@
+[project]
+name = "dice-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mcp[cli]>=1.13.1",
+    "pydantic>=2.11.7",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+    "flake8-bugbear>=24.12.12",
+    "pre-commit>=4.3.0",
+]
