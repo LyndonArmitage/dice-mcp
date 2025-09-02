@@ -4,8 +4,9 @@ import random
 import re
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
-from mcp.server.fastmcp.prompts.base import UserMessage
+import mcp.types as types
+from fastmcp import Context, FastMCP
+from fastmcp.prompts.prompt import PromptMessage, TextContent
 from pydantic import BaseModel, Field
 
 mcp: FastMCP = FastMCP("Dice Roller")
@@ -124,6 +125,7 @@ def roll(notation: str, seed: Optional[int] = None) -> RollResult:
     name="rules",
     title="Dice Rules",
     description="Reference rules for dice notation.",
+    mime_type="text/markdown",
 )
 def dice_rules() -> str:
     return """
@@ -141,13 +143,23 @@ Examples:
 
 @mcp.prompt(
     title="How to use dice notation",
+    description="Get information on how to use dice notation.",
 )
-def dice_help(example: str = "3d6+2") -> list[dict]:
+async def dice_help(example: str, ctx: Context) -> list[dict]:
+    result = await ctx.read_resource("rules://dice")
+    result_content = types.TextResourceContents(
+        uri="rules://dice", mimeType="text/markdown", text=str(result[0].content)
+    )
+
+    embedded = types.EmbeddedResource(type="resource", resource=result_content)
+
+    message = (
+        "Explain how to write dice notation and give a few examples. "
+        f"Include what '{example}' means. Reference rules://dice if needed."
+    )
     return [
-        UserMessage(
-            "Explain how to write dice notation and give a few examples. "
-            f"Include what '{example}' means. Reference rules://dice if needed."
-        ),
+        PromptMessage(role="user", content=embedded),
+        PromptMessage(role="user", content=TextContent(type="text", text=message)),
     ]
 
 
