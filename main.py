@@ -21,6 +21,7 @@ class RollResult(BaseModel):
             "modifiers applied."
         )
     )
+    notation_explained: str = Field(description="The dice notation explained in text.")
     roll_results: list[int] = Field(description="The individual results of each roll.")
 
 
@@ -43,12 +44,28 @@ class Roll(BaseModel):
             rolls.append(roll)
             total += roll
         modified_total = total + self.modifier
+        notation_explained = self.as_text()
         return RollResult(
             notation=notation,
+            notation_explained=notation_explained,
             result=modified_total,
             raw_total=total,
             roll_results=rolls,
         )
+
+    def as_text(self) -> str:
+        """
+        Return a human readable explanation of the notation
+        """
+        dice_txt = "dice" if self.count > 1 else "die"
+        count_text = f"Roll {self.count} {self.sides} sided {dice_txt}"
+        mod_text = "."
+        if self.modifier != 0:
+            if self.modifier < 0:
+                mod_text = f", subtract {abs(self.modifier)} from the result."
+            elif self.modifier > 0:
+                mod_text = f", add {self.modifier} to the result."
+        return f"{count_text}{mod_text}"
 
     def _roll_single(self, rng: random.Random) -> int:
         """Roll a single dice."""
@@ -100,7 +117,10 @@ def parse_notation(notation: str) -> Roll:
             case "-":
                 modifier *= -1
             case _:
-                raise ValueError(f"Invalid modifier operator '{operator}'")
+                raise ValueError(
+                    f"Invalid modifier operator '{operator}', "
+                    "supported operators are '+' and '-'"
+                )
 
     return Roll(count=count, sides=sides, modifier=modifier)
 
@@ -114,7 +134,7 @@ def parse_notation(notation: str) -> Roll:
         "with an optional seed number for the random number generator."
     ),
 )
-def roll(notation: str, seed: Optional[int] = None) -> RollResult:
+def roll(notation: str = "1d6", seed: Optional[int] = None) -> RollResult:
     roll = parse_notation(notation)
     rng: random.Random = random.Random(seed) if seed is not None else random.Random()
     return roll.roll(rng)
@@ -129,23 +149,40 @@ def roll(notation: str, seed: Optional[int] = None) -> RollResult:
 )
 def dice_rules() -> str:
     return """
-Dice notation takes the form XdY+Z:
+Dice notation takes the form XdYoZ:
 - X = number of dice (default 1 if omitted)
 - Y = sides per die (minimum 2)
-- Z = optional modifier, added or subtracted
+- o = optional operation to do to the result
+- Z = optional modifier, used by the operation
 Examples:
   - `d20` roll one 20-sided die
   - `3d6+2` roll three six-sided dice and add 2
   - `1d10` roll one 10-sided die
   - `36d12-10` roll 36 12-sided dice and subtract 10 from the total
-"""
+
+Supported operations are:
+ - Addition with +
+ - Subtraction with -
+""".strip()
+
+
+@mcp.resource(
+    "explain://{dice_annotation}",
+    name="explain_annotation",
+    title="Explain Dice Annotation",
+    description="Explains the given dice annotation in text",
+    mime_type="text/plain",
+)
+def explain_annotation(dice_annotation: str = "2d6+12") -> str:
+    roll = parse_notation(dice_annotation)
+    return roll.as_text()
 
 
 @mcp.prompt(
     title="How to use dice notation",
     description="Get information on how to use dice notation.",
 )
-async def dice_help(example: str, ctx: Context) -> list[dict]:
+async def dice_help(example: str = "2d6+2", ctx: Context = None) -> list[dict]:
     result = await ctx.read_resource("rules://dice")
     result_content = types.TextResourceContents(
         uri="rules://dice", mimeType="text/markdown", text=str(result[0].content)
