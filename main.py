@@ -167,14 +167,14 @@ Supported operations are:
 
 
 @mcp.resource(
-    "explain://{dice_annotation}",
-    name="explain_annotation",
-    title="Explain Dice Annotation",
+    "explain://{dice_notation}",
+    name="explain_notation",
+    title="Explain Dice Notation",
     description="Explains the given dice annotation in text",
     mime_type="text/plain",
 )
-def explain_annotation(dice_annotation: str = "2d6+12") -> str:
-    roll = parse_notation(dice_annotation)
+def explain_notation(dice_notation: str = "2d6+12") -> str:
+    roll = parse_notation(dice_notation)
     return roll.as_text()
 
 
